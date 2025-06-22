@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL Fractal Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Basic styling */
+        body { font-family: 'Inter', sans-serif; background-color: #1a202c; color: #e2e8f0; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #canvas-container {
+            width: 100%; height: 60vh; /* Adjusted height for drawing canvas */
+            margin-bottom: 0.5rem; border-radius: 0.375rem;
+            overflow: hidden; background-color: #000;
+        }
+        /* Drawing Canvas Styling */
+        #drawCanvas {
+            border: 1px solid #4a5568; cursor: crosshair;
+            touch-action: none; /* Prevent scrolling on touch devices */
+            background-color: #000; /* Black background */
+        }
+        #drawing-controls { margin-top: 0.5rem; margin-bottom: 1rem; display: flex; gap: 0.5rem; }
+        .draw-button { background-color: #4a5568; color: white; border: none; padding: 0.3rem 0.8rem; border-radius: 0.375rem; cursor: pointer; transition: background-color 0.2s; font-size: 0.8rem;}
+        .draw-button:hover { background-color: #2d3748; }
+
+        /* Other Controls Styling */
+        input[type="file"]::file-selector-button { /* ... */ background-color: #4a5568; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; transition: background-color 0.2s; }
+        input[type="file"]::file-selector-button:hover { background-color: #2d3748; }
+        textarea { background-color: #2d3748; border: 1px solid #4a5568; color: #e2e8f0; font-family: monospace; height: 100px; }
+        #message { min-height: 1.5rem; color: #fbd38d; }
+        input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; background: #4a5568; border-radius: 5px; outline: none; opacity: 0.7; transition: opacity .2s; cursor: pointer; margin-top: 0.25rem; margin-bottom: 0.5rem;}
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; background: #a0aec0; border-radius: 50%; cursor: pointer; }
+        input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; background: #a0aec0; border-radius: 50%; cursor: pointer; border: none; }
+        .control-group { border: 1px solid #4a5568; border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 1rem;}
+        .control-group h3 { font-semibold; color: #a0aec0; margin-bottom: 0.5rem; }
+        label { display: block; text-sm font-medium mb-0; color: #cbd5e0;}
+        label span.value-display { float: right; color: #a0aec0; font-weight: normal; }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="p-4 md:p-8">
+
+    <h1 class="text-2xl md:text-3xl font-bold mb-4 text-center">WebGL Fractal Visualizer</h1>
+
+    <div class="flex flex-col md:flex-row gap-4 mb-4">
+        <div class="w-full md:w-1/3 lg:w-1/4 space-y-4 overflow-y-auto" style="max-height: calc(100vh - 150px);">
+            <div class="control-group">
+                <h3>Audio Input</h3>
+                <div>
+                    <label for="audioFile">1. Load Music File:</label>
+                    <input type="file" id="audioFile" accept="audio/*" class="input-style mt-1">
+                    <audio id="audioPlayer" controls class="w-full mt-2 hidden"></audio>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Audio Reactivity</h3>
+                 {/* ... Keep existing audio sliders ... */}
+                 <div><label for="audioAmountSlider">Overall Amount: <span class="value-display" id="audioAmountValue">1.0</span></label><input type="range" id="audioAmountSlider" min="0.0" max="5.0" step="0.1" value="1.0"></div>
+                 <div><label for="scaleAudioAmountSlider">Scale React Amt: <span class="value-display" id="scaleAudioAmountValue">0.5</span></label><input type="range" id="scaleAudioAmountSlider" min="0.0" max="2.0" step="0.05" value="0.5"></div>
+                 <div><label for="foldAudioAmountSlider">Fold React Amt: <span class="value-display" id="foldAudioAmountValue">0.5</span></label><input type="range" id="foldAudioAmountSlider" min="0.0" max="2.0" step="0.05" value="0.5"></div>
+                 <div><label for="radiusAudioAmountSlider">Radius React Amt: <span class="value-display" id="radiusAudioAmountValue">0.4</span></label><input type="range" id="radiusAudioAmountSlider" min="0.0" max="2.0" step="0.05" value="0.4"></div>
+                 <div><label for="camDistAudioAmountSlider">CamDist React Amt: <span class="value-display" id="camDistAudioAmountValue">1.5</span></label><input type="range" id="camDistAudioAmountSlider" min="0.0" max="5.0" step="0.1" value="1.5"></div>
+            </div>
+
+             <div class="control-group">
+                <h3>Fractal Shape</h3>
+                 {/* ... Keep existing shape sliders ... */}
+                 <div><label for="iterationsSlider">Iterations: <span class="value-display" id="iterationsValue">8</span></label><input type="range" id="iterationsSlider" min="1" max="12" step="1" value="8"></div>
+                 <div><label for="baseScaleSlider">Base Scale: <span class="value-display" id="baseScaleValue">1.8</span></label><input type="range" id="baseScaleSlider" min="1.0" max="3.0" step="0.01" value="1.8"></div>
+                 <div><label for="foldOffsetXSlider">Fold Offset X: <span class="value-display" id="foldOffsetXValue">1.0</span></label><input type="range" id="foldOffsetXSlider" min="0.5" max="2.0" step="0.01" value="1.0"></div>
+                 <div><label for="foldOffsetYSlider">Fold Offset Y: <span class="value-display" id="foldOffsetYValue">1.1</span></label><input type="range" id="foldOffsetYSlider" min="0.5" max="2.0" step="0.01" value="1.1"></div>
+                 <div><label for="foldOffsetZSlider">Fold Offset Z: <span class="value-display" id="foldOffsetZValue">1.2</span></label><input type="range" id="foldOffsetZSlider" min="0.5" max="2.0" step="0.01" value="1.2"></div>
+                 <div><label for="sphereRadiusSlider">Sphere Fold Radius: <span class="value-display" id="sphereRadiusValue">0.8</span></label><input type="range" id="sphereRadiusSlider" min="0.1" max="2.0" step="0.01" value="0.8"></div>
+                 <div><label for="seamOffsetXSlider">Seam Offset X: <span class="value-display" id="seamOffsetXValue">0.01</span></label><input type="range" id="seamOffsetXSlider" min="-0.1" max="0.1" step="0.001" value="0.011"></div>
+                 <div><label for="seamOffsetYSlider">Seam Offset Y: <span class="value-display" id="seamOffsetYValue">0.01</span></label><input type="range" id="seamOffsetYSlider" min="-0.1" max="0.1" step="0.001" value="0.011"></div>
+                 <div><label for="seamOffsetZSlider">Seam Offset Z: <span class="value-display" id="seamOffsetZValue">0.01</span></label><input type="range" id="seamOffsetZSlider" min="-0.1" max="0.1" step="0.001" value="0.011"></div>
+                 {/* New Drawing Influence Slider */}
+                 <div>
+                    <label for="drawingInfluenceSlider">Drawing Influence: <span class="value-display" id="drawingInfluenceValue">0.1</span></label>
+                    <input type="range" id="drawingInfluenceSlider" min="0.0" max="0.5" step="0.01" value="0.1">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Animation</h3>
+                 {/* ... Keep existing animation sliders ... */}
+                 <div><label for="evolutionSpeedSlider">Evolution Speed: <span class="value-display" id="evolutionSpeedValue">1.0</span></label><input type="range" id="evolutionSpeedSlider" min="0.0" max="5.0" step="0.05" value="1.0"></div>
+            </div>
+
+             <div class="control-group">
+                <h3>Visuals</h3>
+                 {/* ... Keep existing visual sliders ... */}
+                 <div><label for="lightPosXSlider">Light Pos X: <span class="value-display" id="lightPosXValue">3.0</span></label><input type="range" id="lightPosXSlider" min="-10.0" max="10.0" step="0.1" value="3.0"></div>
+                 <div><label for="lightPosYSlider">Light Pos Y: <span class="value-display" id="lightPosYValue">4.0</span></label><input type="range" id="lightPosYSlider" min="-10.0" max="10.0" step="0.1" value="4.0"></div>
+                 <div><label for="lightPosZSlider">Light Pos Z: <span class="value-display" id="lightPosZValue">3.0</span></label><input type="range" id="lightPosZSlider" min="-10.0" max="10.0" step="0.1" value="3.0"></div>
+                 <div><label for="aoStrengthSlider">AO Strength: <span class="value-display" id="aoStrengthValue">1.5</span></label><input type="range" id="aoStrengthSlider" min="0.0" max="3.0" step="0.1" value="1.5"></div>
+                 <div><label for="fogAmountSlider">Fog Amount: <span class="value-display" id="fogAmountValue">0.5</span></label><input type="range" id="fogAmountSlider" min="0.0" max="1.0" step="0.01" value="0.5"></div>
+            </div>
+
+
+             <div class="control-group">
+                <h3>Shader Code</h3>
+                <label for="shaderCode" class="block text-sm font-medium mb-1">(Optional) Paste Custom Code:</label>
+                <textarea id="shaderCode" class="w-full p-2 rounded-md border border-gray-600 bg-gray-800 text-gray-200 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" rows="8" spellcheck="false">
+// Music Reactive Raymarched Fractal Shader w/ Drawing Input
+// Draw on the canvas below to influence the fractal shape.
+
+precision highp float;
+
+// Standard Uniforms
+uniform vec3 iResolution;
+uniform float iTime;
+uniform sampler2D iChannel0; // Audio FFT/Wave
+uniform sampler2D iChannel1; // Drawing Canvas Input
+
+// Audio Uniforms
+uniform float u_audioAmount;
+uniform float u_smoothedAvgFreq;
+
+// Control Uniforms
+uniform int u_iterations;
+uniform float u_baseScale;
+uniform vec3 u_foldOffsetBase;
+uniform float u_sphereRadiusBase;
+uniform vec3 u_seamOffset;
+uniform float u_evolutionSpeed;
+uniform float u_scaleAudioAmount;
+uniform float u_foldAudioAmount;
+uniform float u_radiusAudioAmount;
+uniform float u_camDistAudioAmount;
+uniform vec3 u_lightPos;
+uniform float u_aoStrength;
+uniform float u_fogAmount;
+// Drawing Control
+uniform float u_drawingInfluence;
+
+
+#define PI 3.14159265359
+#define MAX_STEPS 80
+#define MAX_DIST 100.0
+#define SURF_DIST 0.001
+#define MAX_ITERATIONS_CONST 12
+
+// --- Audio Helper Functions ---
+float getWaveform(sampler2D channel, float xCoord) {
+    return (texture2D(channel, vec2(clamp(xCoord, 0.0, 1.0), 0.75)).r * 2.0 - 1.0);
+}
+
+// --- Fractal Distance Estimator (SDF) ---
+float map(vec3 p, float audioInfluence, float time, sampler2D drawingTex) {
+    p += u_seamOffset;
+    vec3 initial_p = p;
+    float dr = 1.0;
+    float scale = u_baseScale + audioInfluence * u_scaleAudioAmount + 0.05 * sin(time * 0.1 * u_evolutionSpeed);
+    vec3 foldOffset = u_foldOffsetBase + audioInfluence * u_foldAudioAmount;
+    foldOffset += 0.05 * cos(time * 0.15 * u_evolutionSpeed + vec3(0.0, 1.0, 2.0));
+    float fixedRadius = u_sphereRadiusBase + audioInfluence * u_radiusAudioAmount;
+    float fixedRadius2 = fixedRadius * fixedRadius;
+    int iterations = u_iterations;
+
+    for(int i = 0; i < MAX_ITERATIONS_CONST; i++) {
+        if (i >= iterations) break;
+
+        // --- Apply Drawing Influence ---
+        // Project p onto XY plane and sample drawing texture
+        vec2 drawUV = p.xy * 0.2 + 0.5; // Scale and center UVs (adjust scale factor 0.2 as needed)
+        if (drawUV.x >= 0.0 && drawUV.x <= 1.0 && drawUV.y >= 0.0 && drawUV.y <= 1.0) {
+             float drawValue = texture2D(drawingTex, drawUV).a; // Use Alpha channel (assuming white on black drawing)
+             // Modify p based on drawing: e.g., push outwards
+             if (drawValue > 0.1 && length(p) > 0.01) { // Only apply if something is drawn and p is not zero
+                 p += normalize(p) * drawValue * u_drawingInfluence;
+             }
+        }
+        // --- End Drawing Influence ---
+
+        p = clamp(p, -foldOffset, foldOffset) * 2.0 - p; // Box fold
+        float r2 = dot(p,p);
+        if (r2 > 0.0001 && r2 < fixedRadius2) {
+            float temp = fixedRadius2 / r2; p *= temp; dr *= temp; // Sphere fold
+        }
+        p = p * scale + initial_p; // Scale and translate
+        dr = dr * abs(scale) + 1.0;
+
+        // if (dot(p,p) > 1000.0) break;
+    }
+    return length(p) / abs(dr);
+}
+
+// --- Raymarching Function ---
+float rayMarch(vec3 ro, vec3 rd, float audioInfluence, float time, sampler2D drawingTex, out int steps) {
+    float t = 0.0; steps = 0;
+    for(int i = 0; i < MAX_STEPS; i++) {
+        vec3 pos = ro + rd * t;
+        float d = map(pos, audioInfluence, time, drawingTex); // Pass drawing texture
+        if (d < SURF_DIST * max(t, 0.1) || t > MAX_DIST) break;
+        t += d * 0.7; steps = i + 1;
+    } return min(t, MAX_DIST);
+}
+
+// --- Normal Calculation ---
+vec3 calcNormal(vec3 pos, float audioInfluence, float time, sampler2D drawingTex) {
+    float eps = SURF_DIST * max(length(pos) * 0.5, 0.001); vec2 e = vec2(eps, 0.0);
+    // Pass drawing texture to map calls
+    return normalize(vec3(
+        map(pos + e.xyy, audioInfluence, time, drawingTex) - map(pos - e.xyy, audioInfluence, time, drawingTex),
+        map(pos + e.yxy, audioInfluence, time, drawingTex) - map(pos - e.yxy, audioInfluence, time, drawingTex),
+        map(pos + e.yyx, audioInfluence, time, drawingTex) - map(pos - e.yyx, audioInfluence, time, drawingTex)
+    ));
+}
+
+// --- Main Render Function ---
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    float audioInfluence = u_smoothedAvgFreq * u_audioAmount;
+    float waveValue = getWaveform(iChannel0, fragCoord.x / iResolution.x);
+
+    // Camera Setup
+    vec2 uv_center = (fragCoord.xy - 0.5 * iResolution.xy) / iResolution.y;
+    float camDist = 3.5 + audioInfluence * u_camDistAudioAmount;
+    vec3 ro = vec3(0.0, 0.5, camDist);
+    vec3 target = vec3(0.0, 0.0, 0.0);
+    vec3 camUp = vec3(0.0, 1.0, 0.0);
+    vec3 camFwd = normalize(target - ro);
+    vec3 camRight = normalize(cross(camFwd, camUp));
+    vec3 camActualUp = cross(camRight, camFwd);
+    vec3 rd = normalize(camFwd + uv_center.x * camRight * (iResolution.x/iResolution.y) + uv_center.y * camActualUp);
+
+    // Ray March Fractal
+    int steps;
+    float evolutionTime = iTime;
+    float t = rayMarch(ro, rd, audioInfluence, evolutionTime, iChannel1, steps); // Pass iChannel1 (drawing)
+
+    // Base Coloring & Lighting
+    vec3 col = vec3(0.0);
+    if (t < MAX_DIST) {
+        vec3 pos = ro + rd * t;
+        vec3 normal = calcNormal(pos, audioInfluence, evolutionTime, iChannel1); // Pass iChannel1
+        vec3 lightPos = u_lightPos;
+        vec3 lightDir = normalize(lightPos - pos);
+        float diffuse = max(dot(normal, lightDir), 0.0);
+        float ao = pow(1.0 - float(steps) / float(MAX_STEPS), u_aoStrength);
+        vec3 baseColor = 0.5 + 0.5 * cos(pos * 1.5 + audioInfluence * 6.0 + evolutionTime * 0.05 * u_evolutionSpeed + vec3(0.0, 1.0, 2.0));
+        float ambient = 0.15;
+        col = baseColor * (diffuse * 0.8 + ambient) * ao * (1.0 + waveValue * 0.2 * u_audioAmount);
+        float fogStart = MAX_DIST * u_fogAmount;
+        float fogFactor = smoothstep(fogStart, MAX_DIST, t);
+        col = mix(col, vec3(0.0), fogFactor);
+    } else {
+         col = vec3(0.05, 0.05, 0.1) * (1.0 - length(uv_center) * 0.5); // Background
+    }
+
+    // --- REMOVED Wave Overlay ---
+
+    col = pow(col, vec3(0.4545)); // Gamma
+    fragColor = vec4(col, 1.0);
+}
+
+// Boilerplate main function
+void main() {
+    mainImage(gl_FragColor, gl_FragCoord.xy);
+}
+                </textarea>
+                <button id="updateShader" class="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out">
+                    Update Shader
+                </button>
+             </div>
+             <div id="message" class="text-sm text-orange-300 mt-2"></div>
+        </div>
+
+        <div class="w-full md:w-2/3 lg:w-3/4">
+             <div id="canvas-container">
+                <canvas id="glCanvas"></canvas>
+            </div>
+            {/* --- Drawing Canvas Area --- */}
+            <div class="mt-2">
+                <label class="block text-sm font-medium mb-1 text-gray-300">Draw Here to Influence Fractal:</label>
+                <canvas id="drawCanvas" width="256" height="256"></canvas> {/* Fixed size drawing canvas */}
+                <div id="drawing-controls">
+                    <button id="clearDrawingButton" class="draw-button">Clear Drawing</button>
+                    {/* <button id="useDrawingButton" class="draw-button">Update Fractal with Drawing</button> */} {/* Optional: Manual update button */}
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- Global Variables ---
+        const canvas = document.getElementById('glCanvas');
+        let gl = null;
+        try { gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl'); }
+        catch (e) { console.error("Error getting WebGL context:", e); }
+
+        const audioPlayer = document.getElementById('audioPlayer');
+        const audioFileInput = document.getElementById('audioFile');
+        const shaderCodeTextarea = document.getElementById('shaderCode');
+        const updateShaderButton = document.getElementById('updateShader');
+        const messageDiv = document.getElementById('message');
+
+        // --- Drawing Canvas Elements ---
+        const drawCanvas = document.getElementById('drawCanvas');
+        const drawCtx = drawCanvas.getContext('2d');
+        const clearDrawingButton = document.getElementById('clearDrawingButton');
+        // const useDrawingButton = document.getElementById('useDrawingButton'); // If using manual update
+
+        // --- Control Elements ---
+        const controls = { // Store refs to sliders & displays
+            audioAmount: { slider: document.getElementById('audioAmountSlider'), display: document.getElementById('audioAmountValue') },
+            scaleAudioAmount: { slider: document.getElementById('scaleAudioAmountSlider'), display: document.getElementById('scaleAudioAmountValue') },
+            foldAudioAmount: { slider: document.getElementById('foldAudioAmountSlider'), display: document.getElementById('foldAudioAmountValue') },
+            radiusAudioAmount: { slider: document.getElementById('radiusAudioAmountSlider'), display: document.getElementById('radiusAudioAmountValue') },
+            camDistAudioAmount: { slider: document.getElementById('camDistAudioAmountSlider'), display: document.getElementById('camDistAudioAmountValue') },
+            // waveAudioAmount: { slider: document.getElementById('waveAudioAmountSlider'), display: document.getElementById('waveAudioAmountValue') }, // Removed
+            iterations: { slider: document.getElementById('iterationsSlider'), display: document.getElementById('iterationsValue') },
+            baseScale: { slider: document.getElementById('baseScaleSlider'), display: document.getElementById('baseScaleValue') },
+            foldOffsetX: { slider: document.getElementById('foldOffsetXSlider'), display: document.getElementById('foldOffsetXValue') },
+            foldOffsetY: { slider: document.getElementById('foldOffsetYSlider'), display: document.getElementById('foldOffsetYValue') },
+            foldOffsetZ: { slider: document.getElementById('foldOffsetZSlider'), display: document.getElementById('foldOffsetZValue') },
+            sphereRadius: { slider: document.getElementById('sphereRadiusSlider'), display: document.getElementById('sphereRadiusValue') },
+            seamOffsetX: { slider: document.getElementById('seamOffsetXSlider'), display: document.getElementById('seamOffsetXValue') },
+            seamOffsetY: { slider: document.getElementById('seamOffsetYSlider'), display: document.getElementById('seamOffsetYValue') },
+            seamOffsetZ: { slider: document.getElementById('seamOffsetZSlider'), display: document.getElementById('seamOffsetZValue') },
+            drawingInfluence: { slider: document.getElementById('drawingInfluenceSlider'), display: document.getElementById('drawingInfluenceValue') }, // New
+            evolutionSpeed: { slider: document.getElementById('evolutionSpeedSlider'), display: document.getElementById('evolutionSpeedValue') },
+            // waveSpeed: { slider: document.getElementById('waveSpeedSlider'), display: document.getElementById('waveSpeedValue') }, // Removed
+            lightPosX: { slider: document.getElementById('lightPosXSlider'), display: document.getElementById('lightPosXValue') },
+            lightPosY: { slider: document.getElementById('lightPosYSlider'), display: document.getElementById('lightPosYValue') },
+            lightPosZ: { slider: document.getElementById('lightPosZSlider'), display: document.getElementById('lightPosZValue') },
+            aoStrength: { slider: document.getElementById('aoStrengthSlider'), display: document.getElementById('aoStrengthValue') },
+            fogAmount: { slider: document.getElementById('fogAmountSlider'), display: document.getElementById('fogAmountValue') },
+            // waveIntensity: { slider: document.getElementById('waveIntensitySlider'), display: document.getElementById('waveIntensityValue') }, // Removed
+            // waveComplexity: { slider: document.getElementById('waveComplexitySlider'), display: document.getElementById('waveComplexityValue') } // Removed
+        };
+
+        // --- WebGL & Audio Variables ---
+        let audioContext, analyserNode, sourceNode;
+        let frequencyData, waveformData, audioTexture;
+        let shaderProgram, positionBuffer, positionAttributeLocation;
+        let controlUniformLocations = {}; // Holds all uniform locations
+        let drawTexture; // Texture for the drawing canvas (iChannel1)
+
+        let startTime = Date.now();
+        let lastFrameTime = startTime;
+        let animationFrameId;
+        let glTextureWidth = 512;
+        let glTextureHeight = 2;
+        let mousePos = { x: 0, y: 0, clickX: 0, clickY: 0, isDown: false };
+        let smoothedAvgFreq = 0.0;
+        let isDrawing = false; // Flag for drawing canvas interaction
+        let lastDrawPoint = { x: 0, y: 0 }; // For smoother lines
+
+        const vsSource = ` attribute vec4 aVertexPosition; void main(void) { gl_Position = aVertexPosition; } `;
+
+        // --- Initialization ---
+        function initWebGL() {
+            if (!gl) { setMessage('Unable to initialize WebGL.', true); return false; }
+
+            positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0];
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+            // Create Audio Texture (iChannel0)
+            audioTexture = createAndSetupTexture(gl); // Linear filtering is okay for audio
+            const initialAudioData = new Uint8Array(glTextureWidth * glTextureHeight * 4);
+            gl.bindTexture(gl.TEXTURE_2D, audioTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, glTextureWidth, glTextureHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, initialAudioData);
+
+            // --- Create Drawing Texture (iChannel1) ---
+            drawTexture = createAndSetupTexture(gl, true); // Use NEAREST filtering for drawing data
+            gl.bindTexture(gl.TEXTURE_2D, drawTexture);
+            // Initialize with black (or use drawCanvas initial state)
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, drawCanvas.width, drawCanvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); // Allocate
+            clearDrawing(); // Clear drawing canvas initially and fill texture
+
+
+            // Compile the default shader
+            if (!updateShaderProgram(shaderCodeTextarea.value)) {
+                 setMessage('Failed to compile initial shader. Check console (F12).', true);
+                 return false;
+            }
+
+            setupEventListeners(); // Setup ALL listeners
+
+            setMessage('WebGL Initialized. Load audio or draw below.');
+            return true;
+        }
+
+        function setupEventListeners() {
+             // Mouse listeners (for main canvas iMouse uniform)
+             canvas.addEventListener('mousemove', (event) => { const rect = canvas.getBoundingClientRect(); mousePos.x = event.clientX - rect.left; mousePos.y = canvas.height - (event.clientY - rect.top); });
+             canvas.addEventListener('mousedown', (event) => { const rect = canvas.getBoundingClientRect(); mousePos.isDown = true; mousePos.clickX = event.clientX - rect.left; mousePos.clickY = canvas.height - (event.clientY - rect.top); });
+             canvas.addEventListener('mouseup', () => { mousePos.isDown = false; });
+             canvas.addEventListener('mouseleave', () => { mousePos.isDown = false; });
+
+             // Slider listeners
+             for (const key in controls) { /* ... (same as before) ... */
+                 if (controls[key].slider && controls[key].display) {
+                     const formatValue = (value) => { const step = parseFloat(controls[key].slider.step) || 0.1; if (step >= 1) return parseInt(value).toString(); if (step >= 0.1) return parseFloat(value).toFixed(1); if (step >= 0.01) return parseFloat(value).toFixed(2); return parseFloat(value).toFixed(3); };
+                     controls[key].slider.addEventListener('input', (event) => { controls[key].display.textContent = formatValue(event.target.value); });
+                     controls[key].display.textContent = formatValue(controls[key].slider.value);
+                 }
+              }
+             // Audio file input listener
+             audioFileInput.addEventListener('change', (event) => { /* ... (same as before) ... */
+                 const file = event.target.files[0];
+                 if (file) { const objectURL = URL.createObjectURL(file); audioPlayer.src = objectURL; initAudio(audioPlayer); audioPlayer.play().catch(e => setMessage(`Audio play failed: ${e.message}. User interaction?`, true)); }
+              });
+             // Update shader button listener
+             updateShaderButton.addEventListener('click', () => { /* ... (same as before) ... */
+                  if (updateShaderProgram(shaderCodeTextarea.value)) { if (!animationFrameId && gl) { startTime = Date.now(); lastFrameTime = startTime; renderLoop(); } }
+              });
+
+             // --- Drawing Canvas Listeners ---
+             function getDrawPos(event) {
+                 const rect = drawCanvas.getBoundingClientRect();
+                 let x, y;
+                 if (event.touches && event.touches.length > 0) { // Handle touch events
+                     x = event.touches[0].clientX - rect.left;
+                     y = event.touches[0].clientY - rect.top;
+                 } else { // Handle mouse events
+                     x = event.clientX - rect.left;
+                     y = event.clientY - rect.top;
+                 }
+                 return { x, y };
+             }
+
+             drawCanvas.addEventListener('pointerdown', (event) => { // Use pointer events for unified touch/mouse
+                 isDrawing = true;
+                 lastDrawPoint = getDrawPos(event);
+                 event.preventDefault(); // Prevent default touch actions like scrolling
+             });
+
+             drawCanvas.addEventListener('pointermove', (event) => {
+                 if (!isDrawing) return;
+                 const currentPos = getDrawPos(event);
+                 drawCtx.strokeStyle = 'white'; // Draw white
+                 drawCtx.lineWidth = 3; // Line thickness
+                 drawCtx.lineCap = 'round';
+                 drawCtx.lineJoin = 'round';
+                 drawCtx.beginPath();
+                 drawCtx.moveTo(lastDrawPoint.x, lastDrawPoint.y);
+                 drawCtx.lineTo(currentPos.x, currentPos.y);
+                 drawCtx.stroke();
+                 lastDrawPoint = currentPos;
+                 // Update texture frequently while drawing if desired (can impact performance)
+                 // updateDrawingTexture();
+                 event.preventDefault();
+             });
+
+             drawCanvas.addEventListener('pointerup', () => {
+                 if (!isDrawing) return;
+                 isDrawing = false;
+                 updateDrawingTexture(); // Update texture when drawing stops
+             });
+
+             drawCanvas.addEventListener('pointerleave', () => {
+                 if (!isDrawing) return;
+                 isDrawing = false;
+                 updateDrawingTexture(); // Update texture when pointer leaves
+             });
+
+             clearDrawingButton.addEventListener('click', clearDrawing);
+
+             // Optional: Manual update button listener
+             // useDrawingButton.addEventListener('click', updateDrawingTexture);
+        }
+
+
+        function initAudio(audioElement) { /* ... (same as before) ... */
+            if (!audioContext) { try { window.AudioContext = window.AudioContext || window.webkitAudioContext; audioContext = new AudioContext(); } catch(e) { setMessage('Web Audio API is not supported.', true); return; } }
+            if (sourceNode) { sourceNode.disconnect(); } if (analyserNode) { analyserNode.disconnect(); }
+            sourceNode = audioContext.createMediaElementSource(audioElement); analyserNode = audioContext.createAnalyser();
+            analyserNode.fftSize = glTextureWidth * 2; analyserNode.smoothingTimeConstant = 0.7;
+            const bufferLength = analyserNode.frequencyBinCount; frequencyData = new Uint8Array(bufferLength); waveformData = new Uint8Array(bufferLength);
+            if (bufferLength !== glTextureWidth) { console.warn(`Analyser buffer length (${bufferLength}) != texture width (${glTextureWidth}).`); }
+            sourceNode.connect(analyserNode); analyserNode.connect(audioContext.destination);
+            setMessage('Audio initialized. Play the music!'); audioPlayer.classList.remove('hidden');
+        }
+
+        // --- Drawing Canvas Functions ---
+        function clearDrawing() {
+            drawCtx.fillStyle = 'black'; // Clear to black
+            drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+            updateDrawingTexture(); // Update the texture after clearing
+        }
+
+        function updateDrawingTexture() {
+            if (!gl || !drawTexture) return;
+            gl.bindTexture(gl.TEXTURE_2D, drawTexture);
+            // Flip the drawing vertically when uploading to match WebGL coords
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, drawCanvas);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); // Reset parameter
+            gl.bindTexture(gl.TEXTURE_2D, null); // Unbind
+            // console.log("Drawing texture updated"); // For debugging
+        }
+
+
+        // --- Shader Compilation ---
+        function loadShader(gl, type, source) { /* ... (same as before) ... */
+             const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader);
+             if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) { console.error(`--- Shader Compilation Failed --- Type: ${type === gl.VERTEX_SHADER ? 'Vertex' : 'Fragment'}`); console.error("Error Log:", gl.getShaderInfoLog(shader)); console.error("Shader Source:\n", source); const errorMsg = `Error compiling ${type === gl.VERTEX_SHADER ? 'Vertex' : 'Fragment'} shader. Check console (F12).`; setMessage(errorMsg, true); gl.deleteShader(shader); return null; } return shader;
+         }
+
+        function updateShaderProgram(fragmentShaderSource) {
+            // ... (Auto-add uniform logic - ADD iChannel1 check) ...
+            let finalSource = fragmentShaderSource.trim();
+            let declarationsToAdd = ""; let declarationsAdded = [];
+            const precisionRegex = /^\s*precision\s+(lowp|mediump|highp)\s+float\s*;/m;
+            const uniformRegex = (name) => new RegExp(`(^|\\s|;|\\/\\*.*\\*\\/|\\/\\/.*\\n)uniform\\s+\\w+\\s+${name}\\s*;`);
+
+            if (!precisionRegex.test(finalSource)) { declarationsToAdd += 'precision highp float;\n'; declarationsAdded.push('precision'); }
+            if (finalSource.includes('iResolution') && !uniformRegex('iResolution').test(finalSource)) { declarationsToAdd += 'uniform vec3 iResolution;\n'; declarationsAdded.push('iResolution'); }
+            if (finalSource.includes('iTime') && !uniformRegex('iTime').test(finalSource)) { declarationsToAdd += 'uniform float iTime;\n'; declarationsAdded.push('iTime'); }
+            if (finalSource.includes('iChannel0') && !uniformRegex('iChannel0').test(finalSource)) { declarationsToAdd += 'uniform sampler2D iChannel0;\n'; declarationsAdded.push('iChannel0'); }
+            // ** Add check for iChannel1 **
+            if (finalSource.includes('iChannel1') && !uniformRegex('iChannel1').test(finalSource)) { declarationsToAdd += 'uniform sampler2D iChannel1;\n'; declarationsAdded.push('iChannel1'); }
+            if (finalSource.includes('iMouse') && !uniformRegex('iMouse').test(finalSource)) { declarationsToAdd += 'uniform vec4 iMouse;\n'; declarationsAdded.push('iMouse'); }
+            // ... (checks for control uniforms) ...
+             if (finalSource.includes('u_audioAmount') && !uniformRegex('u_audioAmount').test(finalSource)) { declarationsToAdd += 'uniform float u_audioAmount;\n'; declarationsAdded.push('u_audioAmount'); }
+             if (finalSource.includes('u_smoothedAvgFreq') && !uniformRegex('u_smoothedAvgFreq').test(finalSource)) { declarationsToAdd += 'uniform float u_smoothedAvgFreq;\n'; declarationsAdded.push('u_smoothedAvgFreq'); }
+             // Add checks for all other control uniforms if needed
+
+            finalSource = declarationsToAdd + finalSource;
+
+            let mainWrapperAdded = false;
+            if (finalSource.includes('mainImage') && !/void\s+main\s*\(\s*\)/.test(finalSource)) {
+                 finalSource += '\n\n// Auto-added main function wrapper\nvoid main() {\n  mainImage(gl_FragColor, gl_FragCoord.xy);\n}\n';
+                 declarationsAdded.push('main() wrapper'); mainWrapperAdded = true;
+            }
+
+            console.log("--- Attempting to compile Fragment Shader: ---"); console.log(finalSource); console.log("---------------------------------------------");
+
+            const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+            const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, finalSource);
+            if (!vertexShader || !fragmentShader) { return false; }
+
+            if (shaderProgram) { gl.deleteProgram(shaderProgram); }
+            shaderProgram = gl.createProgram();
+            gl.attachShader(shaderProgram, vertexShader); gl.attachShader(shaderProgram, fragmentShader); gl.linkProgram(shaderProgram);
+
+            if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+                setMessage('Linker Error: ' + gl.getProgramInfoLog(shaderProgram), true);
+                gl.deleteProgram(shaderProgram); gl.deleteShader(vertexShader); gl.deleteShader(fragmentShader);
+                shaderProgram = null; return false;
+            }
+            gl.deleteShader(vertexShader); gl.deleteShader(fragmentShader);
+
+            // --- Get ALL Uniform Locations ---
+            controlUniformLocations = {};
+            const standardUniforms = { resolutionUniformLocation: "iResolution", timeUniformLocation: "iTime", channel0UniformLocation: "iChannel0", channel1UniformLocation: "iChannel1", mouseUniformLocation: "iMouse" }; // Added iChannel1
+            const controlUniformMap = { // Added drawing influence
+                audioAmount: "u_audioAmount", smoothedAvgFreq: "u_smoothedAvgFreq", iterations: "u_iterations", baseScale: "u_baseScale",
+                foldOffsetBase: "u_foldOffsetBase", sphereRadiusBase: "u_sphereRadiusBase", seamOffset: "u_seamOffset", evolutionSpeed: "u_evolutionSpeed",
+                scaleAudioAmount: "u_scaleAudioAmount", foldAudioAmount: "u_foldAudioAmount", radiusAudioAmount: "u_radiusAudioAmount",
+                camDistAudioAmount: "u_camDistAudioAmount", lightPos: "u_lightPos", aoStrength: "u_aoStrength", fogAmount: "u_fogAmount",
+                drawingInfluence: "u_drawingInfluence" // Removed wave controls
+            };
+
+            positionAttributeLocation = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
+            for(const key in standardUniforms) { controlUniformLocations[key] = gl.getUniformLocation(shaderProgram, standardUniforms[key]); }
+            for(const key in controlUniformMap) { controlUniformLocations[key] = gl.getUniformLocation(shaderProgram, controlUniformMap[key]); }
+
+
+            let message = 'Shader updated successfully!';
+            const userDeclarationsAdded = declarationsAdded.filter(d => d !== 'main() wrapper' || !mainWrapperAdded);
+            if (userDeclarationsAdded.length > 0) { message += ` (Auto-added: ${userDeclarationsAdded.join(', ')})`; }
+            setMessage(message);
+            return true;
+        }
+
+        // --- Texture Helpers ---
+        function createAndSetupTexture(gl, useNearest = false) { // Added flag for filtering
+            const texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            // Use NEAREST for data textures like drawing input, LINEAR for audio/visuals
+            const filter = useNearest ? gl.NEAREST : gl.LINEAR;
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+            return texture;
+         }
+        function updateAudioTexture(gl, texture, freqData, waveData, texWidth, texHeight) { /* ... (same as before) ... */
+             const combinedData = new Uint8Array(texWidth * texHeight * 4);
+            for (let y = 0; y < texHeight; y++) { for (let x = 0; x < texWidth; x++) { const index = (y * texWidth + x) * 4; const freqIndex = Math.min(x, freqData.length - 1); const waveIndex = Math.min(x, waveData.length - 1); if (y === 0) { combinedData[index] = freqData[freqIndex]; combinedData[index+1]=0; combinedData[index+2]=0; combinedData[index+3]=255; } else if (y === 1) { combinedData[index] = waveData[waveIndex]; combinedData[index+1]=0; combinedData[index+2]=0; combinedData[index+3]=255; } else { combinedData[index]=0; combinedData[index+1]=0; combinedData[index+2]=0; combinedData[index+3]=255; } } }
+            gl.bindTexture(gl.TEXTURE_2D, texture); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, texWidth, texHeight, gl.RGBA, gl.UNSIGNED_BYTE, combinedData);
+        }
+
+        // --- Rendering Loop ---
+        function renderLoop() {
+            if (!gl || !shaderProgram) { animationFrameId = requestAnimationFrame(renderLoop); return; }
+
+            const currentTime = Date.now();
+            const deltaTime = (currentTime - lastFrameTime) / 1000.0;
+            lastFrameTime = currentTime;
+
+            let currentRawAvgFreq = 0.0;
+            if (analyserNode) {
+                analyserNode.getByteFrequencyData(frequencyData);
+                analyserNode.getByteTimeDomainData(waveformData);
+                updateAudioTexture(gl, audioTexture, frequencyData, waveformData, glTextureWidth, glTextureHeight);
+                let freqSum = 0;
+                for(let i = 0; i < frequencyData.length; i++) { freqSum += frequencyData[i]; }
+                currentRawAvgFreq = (freqSum / frequencyData.length) / 255.0;
+            }
+            smoothedAvgFreq = smoothedAvgFreq * 0.95 + currentRawAvgFreq * 0.05;
+
+            // --- Update Drawing Texture (less frequently?) ---
+            // Updating every frame might be slow depending on canvas size/drawing complexity
+            // updateDrawingTexture(); // Uncomment to update every frame
+
+            resizeCanvasToDisplaySize(gl.canvas);
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clearColor(0.0, 0.0, 0.0, 1.0); gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.useProgram(shaderProgram);
+
+            // --- Set ALL Uniforms ---
+            const loc = controlUniformLocations;
+            if (loc.resolutionUniformLocation) { gl.uniform3f(loc.resolutionUniformLocation, gl.canvas.width, gl.canvas.height, 1.0); }
+            if (loc.timeUniformLocation) { gl.uniform1f(loc.timeUniformLocation, (currentTime - startTime) / 1000.0); }
+
+            // Bind textures
+            gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, audioTexture);
+            if (loc.channel0UniformLocation) { gl.uniform1i(loc.channel0UniformLocation, 0); }
+            gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, drawTexture); // Bind drawing texture
+            if (loc.channel1UniformLocation) { gl.uniform1i(loc.channel1UniformLocation, 1); } // Tell iChannel1 to use unit 1
+
+
+            // Set mouse uniform
+            if (loc.mouseUniformLocation) { /* ... */ let cX=mousePos.isDown?mousePos.clickX:-Math.abs(mousePos.clickX); let cY=mousePos.isDown?mousePos.clickY:-Math.abs(mousePos.clickY); if(cX===0&&cY===0&&!mousePos.isDown){cX=-1;cY=-1;} gl.uniform4f(loc.mouseUniformLocation,mousePos.x,mousePos.y,cX,cY); }
+
+            // Set control uniforms
+            if (loc.audioAmount) gl.uniform1f(loc.audioAmount, parseFloat(controls.audioAmount.slider.value));
+            if (loc.smoothedAvgFreq) gl.uniform1f(loc.smoothedAvgFreq, smoothedAvgFreq);
+            if (loc.iterations) gl.uniform1i(loc.iterations, parseInt(controls.iterations.slider.value));
+            if (loc.baseScale) gl.uniform1f(loc.baseScale, parseFloat(controls.baseScale.slider.value));
+            if (loc.foldOffsetBase) gl.uniform3f(loc.foldOffsetBase, parseFloat(controls.foldOffsetX.slider.value), parseFloat(controls.foldOffsetY.slider.value), parseFloat(controls.foldOffsetZ.slider.value));
+            if (loc.sphereRadiusBase) gl.uniform1f(loc.sphereRadiusBase, parseFloat(controls.sphereRadius.slider.value));
+            if (loc.seamOffset) gl.uniform3f(loc.seamOffset, parseFloat(controls.seamOffsetX.slider.value), parseFloat(controls.seamOffsetY.slider.value), parseFloat(controls.seamOffsetZ.slider.value));
+            if (loc.evolutionSpeed) gl.uniform1f(loc.evolutionSpeed, parseFloat(controls.evolutionSpeed.slider.value));
+            if (loc.scaleAudioAmount) gl.uniform1f(loc.scaleAudioAmount, parseFloat(controls.scaleAudioAmount.slider.value));
+            if (loc.foldAudioAmount) gl.uniform1f(loc.foldAudioAmount, parseFloat(controls.foldAudioAmount.slider.value));
+            if (loc.radiusAudioAmount) gl.uniform1f(loc.radiusAudioAmount, parseFloat(controls.radiusAudioAmount.slider.value));
+            if (loc.camDistAudioAmount) gl.uniform1f(loc.camDistAudioAmount, parseFloat(controls.camDistAudioAmount.slider.value));
+            if (loc.lightPos) gl.uniform3f(loc.lightPos, parseFloat(controls.lightPosX.slider.value), parseFloat(controls.lightPosY.slider.value), parseFloat(controls.lightPosZ.slider.value));
+            if (loc.aoStrength) gl.uniform1f(loc.aoStrength, parseFloat(controls.aoStrength.slider.value));
+            if (loc.fogAmount) gl.uniform1f(loc.fogAmount, parseFloat(controls.fogAmount.slider.value));
+            if (loc.drawingInfluence) gl.uniform1f(loc.drawingInfluence, parseFloat(controls.drawingInfluence.slider.value)); // Set new uniform
+
+
+            // --- Bind Position Buffer & Draw ---
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(positionAttributeLocation);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+            animationFrameId = requestAnimationFrame(renderLoop);
+        }
+
+        // --- Utility Functions ---
+        function resizeCanvasToDisplaySize(canvas) { /* ... */ const dW=canvas.clientWidth; const dH=canvas.clientHeight; if(canvas.width!==dW||canvas.height!==dH){canvas.width=dW;canvas.height=dH;return true;} return false; }
+        function setMessage(msg, isError=false) { /* ... */ console.log(msg); messageDiv.textContent=msg; messageDiv.style.color = isError?'#f56565':'#fbd38d'; }
+
+        // --- Start ---
+        if (initWebGL()) { renderLoop(); }
+
+    </script>
+
+</body>
+</html>
